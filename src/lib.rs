@@ -29,6 +29,7 @@ mod snd;
 #[cfg(not(target_arch = "wasm32"))]
 mod mixer;
 
+pub use mixer::load_samples_from_file;
 pub use snd::{AudioContext, Playback, Sound};
 
 pub struct PlaySoundParams {
