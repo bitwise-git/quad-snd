@@ -164,8 +164,9 @@ impl AudioContext {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Sound {
-    sound_id: u32,
+    pub sound_id: u32,
 }
 
 impl Sound {
@@ -178,6 +179,10 @@ impl Sound {
     /// Assumed to be 44100 hz, 2 channel data. See `load_samples_from_file`
     pub fn set_samples(&self, ctx: &AudioContext, samples: Vec<f32>) {
         ctx.mixer_ctrl.set_samples(self.sound_id, samples);
+    }
+
+    pub fn set_data_async(&self, ctx: &AudioContext, data: Vec<u8>) {
+        ctx.mixer_ctrl.set_data_async(self.sound_id, data);
     }
 
     pub fn load(ctx: &AudioContext, data: &[u8]) -> Sound {

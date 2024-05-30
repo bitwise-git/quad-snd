@@ -7,7 +7,8 @@ use std::sync::mpsc;
 use std::sync::Arc;
 
 enum AudioMessage {
-    InsertSound(u32, Vec<f32>),
+    InsertSoundAsync(u32, Vec<u8>),
+    InsertSamples(u32, Vec<f32>),
     Play(u32, u32, bool, f32),
     Stop(u32),
     StopAll(u32),
@@ -80,6 +81,14 @@ impl MixerControl {
         self.load_samples(samples)
     }
 
+    pub fn load_async(&self, file_data: Vec<u8>) -> u32 {
+        let id = self.allocate_id();
+        self.tx
+            .send(crate::mixer::AudioMessage::InsertSoundAsync(id, file_data))
+            .unwrap_or_else(|_| println!("Audio thread died"));
+        id
+    }
+
     pub fn allocate_id(&self) -> u32 {
         self.sound_id.fetch_add(1, Ordering::Relaxed)
     }
@@ -88,14 +97,20 @@ impl MixerControl {
     pub fn load_samples(&self, samples: Vec<f32>) -> u32 {
         let sound_id = self.allocate_id();
         self.tx
-            .send(crate::mixer::AudioMessage::InsertSound(sound_id, samples))
+            .send(crate::mixer::AudioMessage::InsertSamples(sound_id, samples))
             .unwrap_or_else(|_| println!("Audio thread died"));
         sound_id
     }
 
+    pub fn set_data_async(&self, sound_id: u32, data: Vec<u8>) {
+        self.tx
+            .send(crate::mixer::AudioMessage::InsertSoundAsync(sound_id, data))
+            .unwrap_or_else(|_| println!("Audio thread died"));
+    }
+
     pub fn set_samples(&self, sound_id: u32, samples: Vec<f32>) {
         self.tx
-            .send(crate::mixer::AudioMessage::InsertSound(sound_id, samples))
+            .send(crate::mixer::AudioMessage::InsertSamples(sound_id, samples))
             .unwrap_or_else(|_| println!("Audio thread died"));
     }
 
@@ -162,7 +177,13 @@ impl Mixer {
     pub fn fill_audio_buffer(&mut self, buffer: &mut [f32], frames: usize) {
         while let Ok(message) = self.rx.try_recv() {
             match message {
-                AudioMessage::InsertSound(sound_id, data) => {
+                AudioMessage::InsertSoundAsync(sound_id, data) => {
+                    if let Ok(samples) = load_samples_from_file(&data) {
+                        let prev = self.sounds.insert(sound_id, samples.into());
+                    }
+                }
+
+                AudioMessage::InsertSamples(sound_id, data) => {
                     let prev = self.sounds.insert(sound_id, data.into());
                     if let Some(prev) = prev {
                         /*

@@ -16,6 +16,7 @@ impl Playback {
     pub fn set_volume(&self, _ctx: &AudioContext) {}
 }
 
+#[derive(Clone, Copy)]
 pub struct Sound;
 
 impl Sound {

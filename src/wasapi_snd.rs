@@ -203,6 +203,7 @@ impl AudioContext {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct Sound {
     sound_id: u32,
 }
