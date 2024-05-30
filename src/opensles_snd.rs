@@ -431,6 +431,17 @@ pub struct Sound {
 }
 
 impl Sound {
+    pub fn new(ctx: &AudioContext) -> Sound {
+        Self {
+            sound_id: ctx.mixer_ctrl.allocate_id(),
+        }
+    }
+
+    /// Assumed to be 44100 hz, 2 channel data. See `load_samples_from_file`
+    pub fn set_samples(&self, ctx: &AudioContext, samples: Vec<f32>) {
+        ctx.mixer_ctrl.set_samples(self.sound_id, samples);
+    }
+
     pub fn load(ctx: &AudioContext, data: &[u8]) -> Sound {
         let sound_id = ctx.mixer_ctrl.load(data);
         Sound { sound_id }

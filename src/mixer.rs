@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::sync::Arc;
 
 enum AudioMessage {
-    AddSound(u32, Vec<f32>),
+    InsertSound(u32, Vec<f32>),
     Play(u32, u32, bool, f32),
     Stop(u32),
     StopAll(u32),
@@ -79,16 +79,25 @@ impl MixerControl {
         self.load_samples(samples)
     }
 
+    pub fn allocate_id(&self) -> u32 {
+        let sound_id = self.sound_id.get();
+        self.sound_id.set(sound_id + 1);
+        sound_id
+    }
+
     /// Assumed to be 44100 hz, 2 channel data. See `load_samples_from_file`
     pub fn load_samples(&self, samples: Vec<f32>) -> u32 {
-        let sound_id = self.sound_id.get();
-
+        let sound_id = self.allocate_id();
         self.tx
-            .send(crate::mixer::AudioMessage::AddSound(sound_id, samples))
+            .send(crate::mixer::AudioMessage::InsertSound(sound_id, samples))
             .unwrap_or_else(|_| println!("Audio thread died"));
-        self.sound_id.set(sound_id + 1);
-
         sound_id
+    }
+
+    pub fn set_samples(&self, sound_id: u32, samples: Vec<f32>) {
+        self.tx
+            .send(crate::mixer::AudioMessage::InsertSound(sound_id, samples))
+            .unwrap_or_else(|_| println!("Audio thread died"));
     }
 
     pub fn play(&self, sound_id: u32, params: PlaySoundParams) -> Playback {
@@ -156,9 +165,16 @@ impl Mixer {
     pub fn fill_audio_buffer(&mut self, buffer: &mut [f32], frames: usize) {
         while let Ok(message) = self.rx.try_recv() {
             match message {
-                AudioMessage::AddSound(id, data) => {
-                    self.sounds.insert(id, data.into());
+                AudioMessage::InsertSound(sound_id, data) => {
+                    let prev = self.sounds.insert(sound_id, data.into());
+                    if let Some(prev) = prev {
+                        /*
+                            TODO: What if there was an id already present? What happens if it was already playing?
+                                  See delete implementation
+                        */
+                    }
                 }
+
                 AudioMessage::Play(sound_id, play_id, looped, volume) => {
                     if let Some(data) = self.sounds.get(&sound_id) {
                         self.mixer_state.push(SoundState {
@@ -171,11 +187,13 @@ impl Mixer {
                         });
                     }
                 }
+
                 AudioMessage::Stop(play_id) => {
                     if let Some(i) = self.mixer_state.iter().position(|s| s.play_id == play_id) {
                         self.mixer_state.swap_remove(i);
                     }
                 }
+
                 AudioMessage::StopAll(sound_id) => {
                     for i in (0..self.mixer_state.len()).rev() {
                         if self.mixer_state[i].sound_id == sound_id {
@@ -183,12 +201,14 @@ impl Mixer {
                         }
                     }
                 }
+
                 AudioMessage::SetVolume(play_id, volume) => {
                     if let Some(sound) = self.mixer_state.iter_mut().find(|s| s.play_id == play_id)
                     {
                         sound.volume = volume;
                     }
                 }
+
                 AudioMessage::SetVolumeAll(sound_id, volume) => {
                     for sound in self
                         .mixer_state
@@ -198,6 +218,7 @@ impl Mixer {
                         sound.volume = volume;
                     }
                 }
+
                 AudioMessage::Delete(sound_id) => {
                     for i in (0..self.mixer_state.len()).rev() {
                         if self.mixer_state[i].sound_id == sound_id {
