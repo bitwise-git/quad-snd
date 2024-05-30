@@ -2,8 +2,8 @@ use crate::{AudioContext, PlaySoundParams};
 
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::mpsc;
+use std::sync::Arc;
 
 enum AudioMessage {
     AddSound(u32, Vec<f32>),
@@ -74,10 +74,14 @@ impl Playback {
 }
 
 impl MixerControl {
-    pub fn load(&self, data: &[u8]) -> u32 {
-        let sound_id = self.sound_id.get();
+    pub fn load(&self, file_data: &[u8]) -> u32 {
+        let samples = load_samples_from_file(file_data).unwrap();
+        self.load_samples(samples)
+    }
 
-        let samples = load_samples_from_file(data).unwrap();
+    /// Assumed to be 44100 hz, 2 channel data. See `load_samples_from_file`
+    pub fn load_samples(&self, samples: Vec<f32>) -> u32 {
+        let sound_id = self.sound_id.get();
 
         self.tx
             .send(crate::mixer::AudioMessage::AddSound(sound_id, samples))

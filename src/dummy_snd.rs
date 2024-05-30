@@ -19,7 +19,11 @@ impl Playback {
 pub struct Sound;
 
 impl Sound {
-    pub fn load(_data: &[u8]) -> Sound {
+    pub fn load(_ctx: &AudioContext, _data: &[u8]) -> Sound {
+        Sound
+    }
+
+    pub fn load_samples(_ctx: &AudioContext, _samples: Vec<f32>) -> Sound {
         Sound
     }
 

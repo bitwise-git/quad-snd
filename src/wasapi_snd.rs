@@ -3,7 +3,7 @@
 
 use crate::PlaySoundParams;
 
-pub use crate::mixer::Playback;
+pub use crate::mixer::{load_samples_from_file, Playback};
 
 use winapi::shared::guiddef::{CLSID, IID};
 use winapi::shared::ksmedia;
@@ -210,7 +210,11 @@ pub struct Sound {
 impl Sound {
     pub fn load(ctx: &AudioContext, data: &[u8]) -> Sound {
         let sound_id = ctx.mixer_ctrl.load(data);
+        Sound { sound_id }
+    }
 
+    pub fn load_samples(ctx: &AudioContext, samples: Vec<f32>) -> Sound {
+        let sound_id = ctx.mixer_ctrl.load_samples(samples);
         Sound { sound_id }
     }
 

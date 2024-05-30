@@ -2,7 +2,7 @@ use crate::PlaySoundParams;
 
 use std::sync::mpsc;
 
-pub use crate::mixer::Playback;
+pub use crate::mixer::{load_samples_from_file, Playback};
 
 // Slightly reduced OpenSLES implementation
 // from an amazing "audir" library: https://github.com/norse-rs/audir/
@@ -433,7 +433,11 @@ pub struct Sound {
 impl Sound {
     pub fn load(ctx: &AudioContext, data: &[u8]) -> Sound {
         let sound_id = ctx.mixer_ctrl.load(data);
+        Sound { sound_id }
+    }
 
+    pub fn load_samples(ctx: &AudioContext, samples: Vec<f32>) -> Sound {
+        let sound_id = ctx.mixer_ctrl.load_samples(samples);
         Sound { sound_id }
     }
 
