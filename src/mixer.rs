@@ -2,6 +2,7 @@ use crate::{AudioContext, PlaySoundParams};
 
 use std::cell::Cell;
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 use std::sync::mpsc;
 use std::sync::Arc;
 
@@ -54,8 +55,8 @@ pub struct MixerBuilder {
 
 pub struct MixerControl {
     tx: mpsc::Sender<AudioMessage>,
-    sound_id: Cell<u32>,
-    play_id: Cell<u32>,
+    sound_id: std::sync::atomic::AtomicU32,
+    play_id: std::sync::atomic::AtomicU32,
 }
 
 pub struct Playback {
@@ -80,9 +81,7 @@ impl MixerControl {
     }
 
     pub fn allocate_id(&self) -> u32 {
-        let sound_id = self.sound_id.get();
-        self.sound_id.set(sound_id + 1);
-        sound_id
+        self.sound_id.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Assumed to be 44100 hz, 2 channel data. See `load_samples_from_file`
@@ -101,7 +100,7 @@ impl MixerControl {
     }
 
     pub fn play(&self, sound_id: u32, params: PlaySoundParams) -> Playback {
-        let play_id = self.play_id.get();
+        let play_id = self.play_id.fetch_add(1, Ordering::Relaxed);
 
         self.send(AudioMessage::Play(
             sound_id,
@@ -109,8 +108,6 @@ impl MixerControl {
             params.looped,
             params.volume,
         ));
-
-        self.play_id.set(play_id + 1);
 
         Playback { play_id }
     }
@@ -156,8 +153,8 @@ impl Mixer {
             MixerBuilder { rx },
             MixerControl {
                 tx,
-                sound_id: Cell::new(0),
-                play_id: Cell::new(0),
+                sound_id: Default::default(),
+                play_id: Default::default(),
             },
         )
     }
